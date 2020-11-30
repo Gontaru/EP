@@ -18,20 +18,20 @@ import math
 #esta es la distancia máxima posible que usaremos como referencia para evaluar el camino entre 2 ciudades
 max_dis=100*math.sqrt(2)
 pm=0.1
-OPTION=1
+pc=0.25
 
 
 def distance(c1,c2):
     return (math.sqrt( pow(abs(c2.x-c1.x),2) + pow(abs(c2.y-c1.y),2)))
 
-#Función para evaluar cada miembro de la población
+#Función para evaluar cada par miembros de la población
+#cuánto menor sea la distancia entre dos ciudades, mayor será el valor devuelto
 def eval(list,clist):
 	e=0
 	for i in range (len(list)):
 		if(i<len(list)-1): e = ((max_dis - distance(clist[list[i]],clist[list[i+1]])) / max_dis) + e
 		else: e = ((max_dis - distance(clist[list[0]],clist[list[i]])) / max_dis) + e
 	return e
-
 
 def mutate(c):
 	pos1=random.randint(0,len(c)-1)
@@ -105,12 +105,63 @@ class city:
 		self.y=yp
 		self.number=n
 
+	
 	def tostring(self):
 		print("Ciudad nº: "+str(self.number)+" con coord(x,y): ("+str(self.x)+", "+str(self.y)+")")
 
+
+def selectng(ng,it,ql):
+
+	for o in range(len(ql)):
+		selected = False
+		r = random.uniform(0.00,ql[len(ql)-1])
+		aux=0
+		while selected==False and aux<len(ql):
+			if(r<ql[aux]):
+				ng.append(it[aux])
+				selected=True
+			aux=aux+1
+
+def eval_population(it, el, cl, F, ql, pl):
+	F=0
+	ol=0
+	bt=[0]*len(it)
+	#Evaluamos la poblacion
+	for j in range(len(it)):
+		el[j] = eval(it[j],cl)
+		if(ol<el[j]):
+			ol=el[j]
+			bt=it[j]
+	#Obtenemos F
+	for k in range(len(it)):
+		F = F + el[k]
+
+	#Calculamos la probabilidad pi de selección para cada individuo
+	for l in range(len(it)):
+		pl[j]=	(el[l]	/	F)
+
+	#Calculamos la probabilidad cumulativa para cada individuo, 
+	#siendo {q0 = eval0, q1=eval0 + eval1, ... , qn = eval0 + eval1 + ... evaln}
+	for m in range(len(it)):
+		for n in range(m):
+			ql[m] = ql[m] + pl[n]
+
+	return ol, bt
+
+def generate_offsprings(ng,pi,pl,cl):
+	for p in range(len(ng)):
+			c = random.uniform(0.00,1.00)
+			if(c<pc):
+				#añadimos los padres que posteriormente realizarán el cruce
+				pi.append(p)
+				pl.append(ng[p])
+			for q in range(len(pl)):
+				if(q<len(pl)-1):
+					ng[pi[q]]=(crossover(pl[q],pl[q+1], cl))
+
 def main():
-	pc=0.25
 	ncities=0;
+	PROBLEM_SIZE=20;
 	cities_list=[]
 	eval_list=[]
 	best_tour=[]
@@ -118,112 +169,67 @@ def main():
 	q_list=[]
 	p_list=[]
 	F=0
-	#for i in range(10):
-	#	x = random.randint(0,100)
-	#	y = random.randint(0,100)
-	#	c = city(x,y,ncities)
-	#	ncities=ncities+1;
-	#	cities_list.append(c)
-	#	c.tostring()
-	cities_list.append(city(95, 1,0))	
-	cities_list.append(city(45, 99,1))
-	cities_list.append(city(95, 17,2))
-	cities_list.append(city(90, 52,3))
-	cities_list.append(city(97, 71,4))
-	cities_list.append(city(72, 97,5))
-	cities_list.append(city(16, 70,6))
-	cities_list.append(city(24, 58,7))
-	cities_list.append(city(60, 92,8))
-	cities_list.append(city(91, 20,9))
 
+	#inicializamos las ciudades (espacio de búsqueda)
+	for i in range(PROBLEM_SIZE):
+		x = random.randint(0,100)
+		y = random.randint(0,100)
+		c = city(x,y,ncities)
+		ncities=ncities+1;
+		cities_list.append(c)
+		c.tostring()
+
+	#inicializamos soluciones aleatorias (nº individuos)(Hay que sustituirlo por problem_size)
 	initial_tours = []
-	for i in range(10):
+	for i in range(PROBLEM_SIZE):
 		initial_tours.append([])
 		closed_tour=False
 		while closed_tour==False:
-			auxc = random.randint(0,9)
+			auxc = random.randint(0,PROBLEM_SIZE-1)
 			if((auxc in initial_tours[i])==False): initial_tours[i].append(auxc)
-			if(len(initial_tours[i])==10): closed_tour=True
+			if(len(initial_tours[i])==PROBLEM_SIZE): closed_tour=True
+		print(str(initial_tours[i]))
 	
+	#asignamos el optimo local
 	optimo_local=0
-	prueba=[0,2,9,3,4,5,8,1,6,7]
-	print("PROBANDO: "+ str(eval(prueba,cities_list)))
-	for i in range(len(initial_tours)):
-		eval_list.append(eval(initial_tours[i],cities_list))
-	for i in range(len(initial_tours)):
-		if(optimo_local<eval_list[i]):
-				optimo_local=eval_list[i]
-				best_tour=initial_tours[i]
 
+		
+	eval_list=q_list=p_list=[0]*len(initial_tours)
 
-
+	#evaluamos la poblacion inicial
+	#				it,				el,			cl,			F, ql,	pl,			ol,			bt
+	optimo_local, best_tour = eval_population(initial_tours, eval_list, cities_list, F, q_list, p_list)
 
 	i=0
-	if(OPTION==0):
-		while(i<40):
-			i=i+1
-			parents_list=[]
-			for j in range(len(initial_tours)):
-				c = random.uniform(0.00,1.00)
-				if(c<pc):
-					parents_list.append(initial_tours[j])
-			for j in range(len(parents_list)):
-				if(j<len(parents_list)-1):
-					new_generation.append(crossover(parents_list[j],parents_list[j+1],initial_tours))
-			for j in range(len(new_generation)):
-				eval_list.append(eval(new_generation[j],cities_list))
-			for j in range(len(eval_list)):
-				if(optimo_local<eval_list[j]):
-					optimo_local=eval_list[j]
-					best_tour=initial_tours[j]
-			new_generation=[]
-	else:
-		for j in range(len(initial_tours)):
-			p_list.append(eval(initial_tours[j],cities_list))
-		for j in range(len(initial_tours)):
-			if(optimo_local<p_list[j]):
-					optimo_local=p_list[j]
-					best_tour=initial_tours[j]	
-		i=0
-		while(i<3000):
-			parents_list=[]
-			q_list=nc=[0]*len(p_list)
-			i=i+1
-			#Obtenemos F y la probabilidad de selección p para cada individuo
-			for j in range(len(initial_tours)):
-				F = F + p_list[j]
-			for j in range(len(initial_tours)):
-				for k in range(j):
-					q_list[j] = q_list[j] + p_list[k]
-			for j in range(len(eval_list)):
-				selected = False
-				r = random.uniform(0.00,1.00)
-				aux=0
-				#if(initial_tours[j]==optimo_local):
-				#	new_generation.append(initial_tours[j])
-				#	selected=True
-				while selected==False:
-					if(r<p_list[aux]):
-						new_generation.append(initial_tours[aux])
-						selected=True
-					aux=aux+1			
-			for j in range(len(new_generation)):
-				c = random.uniform(0.00,1.00)
-				if(c<pc):
-					parents_list.append(new_generation[j])
-			for j in range(len(parents_list)):
-				if(j<len(parents_list)-1):
-					co(parents_list[j],parents_list[j+1])
-			p_list=[]
-			for j in range(len(new_generation)):
-				p_list.append(eval(new_generation[j],cities_list))
-			initial_tours=[]
-			initial_tours=new_generation
-			for j in range(len(p_list)):
-				if(optimo_local<p_list[j]):
-					optimo_local=p_list[j]
-					best_tour=initial_tours[j]
-			new_generation=[]
+	while(i<10000):
+		
+		i=i+1
+		
+		#Seleccionamos los individuos para la nueva generación
+		#new generation es la nueva generacion dónde añadiremos los seleccionados
+		#initial_tours es dónde seleccionaremos los individuos de la actual generacion
+		#q_list es la lista de probabilidades cumulativas
+		selectng(new_generation,initial_tours,q_list)
+
+		parent_index=[]		
+		parent_list=[]
+		#Generamos los posibles cruces que darán los descendientes de la nueva generación
+		generate_offsprings(new_generation, parent_index, parent_list, cities_list)
+
+		#asignamos la nueva generación
+		initial_tours=[]
+		initial_tours=new_generation
+		new_generation=[]
+		
+		
+		#Evaluamos la poblacion nueva
+		aux_ol, aux_bt = eval_population(initial_tours, eval_list, cities_list, F, q_list, p_list)
+		if(aux_ol>optimo_local):
+			optimo_local=aux_ol
+			best_tour=aux_bt
+
+	
+		print("GENERACION "+str(i)+" eval: "+str(optimo_local))
 	print("SOLUCION ENCONTRADA "+str(best_tour) +" con valor: "+str(optimo_local))
 main()
 
